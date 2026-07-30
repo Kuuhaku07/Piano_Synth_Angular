@@ -2,32 +2,66 @@
 
 Librería Angular 17 standalone + dashboard del módulo Soundboard: sintetizador 100% en navegador (Web Audio API), secuenciador tipo piano roll, presets predefinidos y cache editable de secuencias en `localStorage`.
 
-Pensada para centralizar el código del soundboard y consumirlo desde otros proyectos vía npm (`soundboard-ng`).
+Pensada para centralizar el código del soundboard y consumirla desde otros proyectos vía npm.
+
+---
+
+## ⚡ Instalación rápida
+
+```bash
+npm install soundboard-ng
+```
+
+**Después agregá esto a tu `tailwind.config.js`** (necesario para que las clases del piano compilen):
+
+```js
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './src/**/*.{html,ts}',
+    // 👇 esta línea es la que carga las clases del soundboard
+    './node_modules/soundboard-ng/fesm2022/**/*.mjs',
+  ],
+  theme: { extend: {} },
+  plugins: [],
+};
+```
+
+Si usás **Tailwind v4** con `@import "tailwindcss";`, agregá esto a tu CSS:
+
+```css
+@import "tailwindcss";
+@source "./node_modules/soundboard-ng/fesm2022/**/*.mjs";
+```
+
+**Si tu app no tiene `HttpClient` configurado**, agregá `provideHttpClient()` en tu `app.config.ts` (necesario para cargar presets custom desde JSON).
 
 ---
 
 ## Tabla de contenidos
 
-1. [Scripts](#scripts)
-2. [Estructura](#estructura)
-3. [Instalación](#instalación)
-4. [API pública](#api-pública)
-5. [Componentes](#componentes)
-6. [`PianoSoundService` — guía completa](#pianosoundservice--guía-completa)
-7. [`PianoPresets` — formato MIDI:step](#pianopresets--formato-midistep)
-8. [`SequenceCacheService` — localStorage CRUD](#sequencecacheservice--localstorage-crud)
-9. [Tailwind en el consumidor](#tailwind-en-el-consumidor)
+1. [Scripts](#scripts-del-workspace)
+2. [Estructura del repo](#estructura)
+3. [API pública](#api-pública)
+4. [Componentes](#componentes)
+5. [`PianoSoundService` — guía completa](#pianosoundservice--guía-completa)
+6. [`PianoPresetsService` — presets cargables](#pianopresetsservice--presets-cargables)
+7. [`SequenceCacheService` — localStorage CRUD](#sequencecacheservice--localstorage-crud)
+8. [Personalización de presets](#personalización-de-presets)
+9. [Tailwind (detalle)](#tailwind-en-el-consumidor)
 10. [Flujo de publicación](#flujo-de-publicación)
+11. [Compatibilidad](#compatibilidad)
 
 ---
 
-## Scripts
+## Scripts del workspace
 
 ```bash
+# Cuando trabajás EN el repo de soundboard-ng (desarrollo de la lib):
 npm install
-npm start                # dashboard dev server (http://localhost:4200)
-npm run build            # build de la app dashboard
-npm run build:lib        # build de la librería → dist/soundboard-ng/
+npm start                  # dashboard dev server (http://localhost:4200)
+npm run build:lib          # build de la librería → dist/soundboard-ng/
+npm run build              # build de la app dashboard
 npm test
 ```
 
@@ -46,22 +80,10 @@ projects/soundboard-ng/        # librería (ng-packagr)
         lib-sequencer/piano-sequencer.component.{ts,html,scss}  # <lib-piano-sequencer>
       services/
         piano-sound.service.ts    # motor de audio
-        piano-presets.ts          # presets cargables (defaults + JSON del consumidor)
+        piano-presets.ts          # presets (defaults + cargador JSON)
         sequence-cache.service.ts # CRUD en localStorage
 src/app/                # dashboard app (standalone)
 ```
-
----
-
-## Instalación
-
-En el `package.json` del consumidor:
-
-```json
-"soundboard-ng": "^0.1.0"
-```
-
-Después `npm install`. La librería es Angular 17 standalone; necesita Angular >= 17 en el peer.
 
 ---
 
@@ -75,11 +97,12 @@ import {
 
   // Servicios
   PianoSoundService,          // motor de audio (síntesis + secuencias)
-  PianoPresetsService,        // cargador de presets (defaults + JSON del consumidor)
+  PianoPresetsService,        // cargador de presets (defaults + JSON)
   SequenceCacheService,       // CRUD de secuencias en localStorage
 
   // Constantes y helpers
-  PIANO_PRESETS_DEFAULT,      // defaults congelados de la lib
+  PIANO_PRESETS_DEFAULT,      // defaults congelados
+  PRESETS_URL,                // 'assets/piano-presets.json' por default
   isValidSequence,            // (text: string) => boolean
 
   // NgModule (opcional, para consumidores clásicos)
@@ -249,7 +272,7 @@ playMidiSteps(text: string, options?: SequenceOptions & {
 }): Promise<void>
 ```
 
-Reproduce una secuencia descrita como string en el formato usado por el piano roll y los presets. Ver [sección PianoPresets](#pianopresets--formato-midistep).
+Reproduce una secuencia descrita como string en el formato usado por el piano roll y los presets. Ver [sección PianoPresetsService](#pianopresetsservice--presets-cargables).
 
 ```ts
 await this.piano.playMidiSteps(
@@ -277,6 +300,7 @@ stopSequence(): void                     // para la secuencia activa (playSequen
 setVolume(value: number): void   // 0..1
 getVolume(): number
 setWaveform(w: OscillatorType | VoiceName): void   // voz por defecto para playNote sin waveform
+resume(): Promise<void>          // resume el AudioContext — llamá desde un click handler
 ```
 
 #### Helpers
@@ -321,6 +345,7 @@ import { PianoSoundService, PianoPresetsService, NoteName, Pitch } from 'soundbo
 })
 export class MyButton {
   private piano = inject(PianoSoundService);
+  private presets = inject(PianoPresetsService);
 
   async play() {
     // Acorde
@@ -335,10 +360,10 @@ export class MyButton {
       ],
       { waveform: 'bell' },
     );
-    // Preset predefinido
-    const presets = inject(PianoPresetsService);
-    await presets.loadAll();
-    await this.piano.playMidiSteps(presets.get('flow') ?? '', { loop: true });
+    // Preset predefinido (cargado desde JSON o defaults)
+    await this.presets.loadAll();
+    const text = this.presets.get('flow');
+    if (text) await this.piano.playMidiSteps(text, { loop: true });
   }
 
   ngOnDestroy() {
@@ -350,7 +375,7 @@ export class MyButton {
 
 ---
 
-## `PianoPresets` — formato MIDI:step
+## `PianoPresetsService` — presets cargables
 
 Los presets viven en dos lugares:
 
@@ -359,22 +384,24 @@ Los presets viven en dos lugares:
 
 `PianoPresetsService` carga los defaults + el JSON del consumidor (si existe) y los expone vía `get(name)`, `getAll()`, `keys()`.
 
-### Cómo personalizar los presets SIN tocar la librería
+```ts
+import { inject } from '@angular/core';
+import { PianoPresetsService } from 'soundboard-ng';
 
-1. En el consumidor, creá `src/assets/piano-presets.json` con tu propio set. Mismo formato `{ "nombre": "0@60:2 4@64:4" }`.
-2. Asegurate de que `HttpClient` esté disponible (`provideHttpClient()` en `app.config.ts`).
-3. Nada más. Los presets se cargan al inicializar el servicio y se mergean con los defaults (tu JSON gana si hay claves duplicadas).
+const presets = inject(PianoPresetsService);
 
-Ejemplo de `src/assets/piano-presets.json`:
-```json
-{
-  "wakeup":  "0@60:4 4@64:4 8@67:4 12@72:8",
-  "alertar": "0@67:1 1@72:1 2@76:4",
-  "intro":   "0@[60,64,67]:8 8@72:8 16@[60,64,67,72]:8"
-}
+// Carga una vez (merge de defaults + JSON del consumidor)
+await presets.loadAll();
+
+// Acceso síncrono después de loadAll()
+const flow = presets.get('flow');       // string | null
+const all  = presets.getAll();           // Readonly<Record<string, string>>
+const keys = presets.keys();             // string[]
+
+// Override de la URL del JSON (default: 'assets/piano-presets.json')
+import { PRESETS_URL } from 'soundboard-ng';
+console.log(PRESETS_URL); // 'assets/piano-presets.json'
 ```
-
-Si el JSON no existe o falla la carga, se usan los defaults.
 
 ### Formato del string MIDI:step
 
@@ -421,49 +448,102 @@ Storage key: `piano-sequence-cache-v1`. Maneja errores de quota / `localStorage`
 
 ---
 
+## Personalización de presets
+
+### Crear presets custom SIN tocar la librería
+
+1. En el consumidor, creá `src/assets/piano-presets.json`:
+
+```json
+{
+  "wakeup":  "0@60:4 4@64:4 8@67:4 12@72:8",
+  "alertar": "0@67:1 1@72:1 2@76:4",
+  "intro":   "0@[60,64,67]:8 8@72:8 16@[60,64,67,72]:8"
+}
+```
+
+2. Asegurate de que `HttpClient` esté disponible (`provideHttpClient()` en `app.config.ts`).
+
+3. Nada más. Los presets se cargan al inicializar el servicio y se mergean con los defaults (tu JSON gana si hay claves duplicadas).
+
+### Pasos del preset desde tu código
+
+Si querés reproducir un preset sin pasar por el servicio:
+
+```ts
+import { PIANO_PRESETS_DEFAULT, PianoSoundService } from 'soundboard-ng';
+
+// Default directo (sin tocar JSON del consumidor)
+await inject(PianoSoundService).playMidiSteps(
+  PIANO_PRESETS_DEFAULT.success,
+  { waveform: 'bell', velocity: 0.5 }
+);
+```
+
+---
+
 ## Tailwind en el consumidor
 
-Los componentes usan clases Tailwind (`bg-slate-900`, `bg-emerald-500`, `rounded-xl`, etc.). Agregá la ruta del FESM al `content`:
+**Por qué es necesario:** El HTML del piano usa clases Tailwind (`bg-slate-900`, `bg-emerald-500`, `rounded-xl`, etc.) que están embebidas en el bundle JS de `soundboard-ng`. Tailwind solo escanea los archivos que vos le indicás en `content` — si no agregás el FESM al `content`, las clases aparecen sin estilo (queda texto sin formato).
+
+### Tailwind v3 (probablemente la mayoría)
 
 ```js
-// tailwind.config.js del consumidor
+// tailwind.config.js
 module.exports = {
   content: [
     './src/**/*.{html,ts}',
-    './node_modules/soundboard-ng/fesm2022/**/*.mjs',
+    './node_modules/soundboard-ng/fesm2022/**/*.mjs',  // ← esta línea
   ],
+  theme: { extend: {} },
+  plugins: [],
 };
 ```
 
-Si usás Tailwind v4, ajustá el `content` según corresponda.
+### Tailwind v4
+
+```css
+/* styles.css */
+@import "tailwindcss";
+@source "./node_modules/soundboard-ng/fesm2022/**/*.mjs";  /* ← esta línea */
+```
 
 ---
 
 ## Flujo de publicación
 
+Cuando hagas cambios en el código del soundboard:
+
 ```bash
-# 1. Compilar la librería
+# 1. Compilar
 npm run build:lib
 
-# 2. Empaquetar (opcional, para subir como asset a GitHub Release)
-npm pack dist/soundboard-ng --pack-destination .
+# 2. Bumpear la versión en projects/soundboard-ng/package.json
+#    (ej: "version": "0.1.0" → "0.2.0")
 
-# 3. Bumpear la versión en projects/soundboard-ng/package.json
-
-# 4. Commit + push
+# 3. Commit + push
 git add -A
 git commit -m "feat: nuevos cambios"
 git push origin main
 
-# 5. Publicar a npm
+# 4. Publicar a npm
 cd dist/soundboard-ng
 npm publish --access public
 ```
 
 En cada consumidor:
+
 ```bash
-npm install
+npm update soundboard-ng
 ```
+
+### Publicación automática con GitHub Actions
+
+Hay un workflow en `.github/workflows/release.yml` que compila y publica en cada tag `v*`. Para usarlo:
+
+1. Configurá `NPM_TOKEN` en Settings → Secrets del repo
+2. Push del tag: `git tag v0.2.0 && git push origin v0.2.0`
+3. El workflow publica en npm + sube el tarball al GitHub Release.
 
 ---
 
@@ -472,3 +552,4 @@ npm install
 - Angular 17+ (los componentes son standalone, pero `PianoModule` exporta un NgModule para consumidores clásicos).
 - Web Audio API (todos los navegadores modernos).
 - Requiere gesto del usuario para la primera reproducción.
+- Tailwind v3 o v4 (necesario para los estilos).
