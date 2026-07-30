@@ -1,17 +1,17 @@
 {
   "name": "ngx-piano",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Angular 17 standalone library wrapping the Piano (synth + sequencer + presets + localStorage cache) UI and audio engine.",
   "keywords": ["angular", "piano", "synth", "audio", "webaudio", "music", "sequencer"],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dev1-tecnosystem/ngx-piano.git"
+    "url": "https://github.com/Kuuhaku07/Piano_Synth_Angular.git"
   },
   "bugs": {
-    "url": "https://github.com/dev1-tecnosystem/ngx-piano/issues"
+    "url": "https://github.com/Kuuhaku07/Piano_Synth_Angular/issues"
   },
-  "homepage": "https://github.com/dev1-tecnosystem/ngx-piano#readme",
+  "homepage": "https://github.com/Kuuhaku07/Piano_Synth_Angular#readme",
   "peerDependencies": {
     "@angular/common": "^17.0.0",
     "@angular/core": "^17.0.0",

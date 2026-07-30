@@ -1,0 +1,74 @@
+name: Release ngx-piano
+
+# Compila la librería y publica en npm cuando se pushea un tag "v*".
+# El tarball se sube al GitHub Release como asset binario.
+#
+# Setup previo en GitHub:
+#   1. Settings → Secrets and variables → Actions
+#      → New repository secret: NPM_TOKEN (token con "Bypass 2FA" + publish scope)
+#   2. Settings → Actions → "Allow all actions and reusable workflows"
+#
+# Uso:
+#   npm version patch   # 0.0.2 → 0.0.3
+#   git push origin main --tags
+#   → el workflow publica en npm y crea el GitHub Release.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build library
+        run: npm run build:lib
+
+      - name: Bump version + pack
+        id: pack
+        run: |
+          cd projects/ngx-piano
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          cd ../..
+          npm pack dist/ngx-piano --pack-destination .
+          ls -la ngx-piano-*.tgz
+
+      - name: Publish to npm
+        working-directory: dist/ngx-piano
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Upload tarball to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ngx-piano ${{ steps.pack.outputs.version }}
+          body: |
+            Librería Angular 17 standalone del piano (sintetizador + secuenciador + presets).
+
+            ## Instalación
+
+            ```bash
+            npm install ngx-piano@${{ steps.pack.outputs.version }}
+            ```
+          files: ngx-piano/ngx-piano-${{ steps.pack.outputs.version }}.tgz
+          fail_on_unmatched_files: true
