@@ -1,0 +1,84 @@
+/* Piano-specific styles that complement the Tailwind utility classes.
+   Kept intentionally minimal: only the visual feedback for held keys,
+   which cannot be expressed cleanly with Tailwind utilities alone. */
+
+.piano-key.is-active,
+.piano-key:active {
+  background-color: #34d399 !important; /* emerald-400 */
+  color: #0f172a !important; /* slate-900 */
+}
+
+.piano-key {
+  cursor: pointer;
+  transition:
+    background-color 80ms ease,
+    box-shadow 80ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.piano-black.is-active,
+.piano-black:active {
+  background-color: #10b981 !important; /* emerald-500 */
+  color: #f8fafc !important;
+}
+
+.piano-white-slot {
+  min-width: 28px;
+}
+
+/* ng-select dark theme override for the waveform picker. */
+.piano-waveform-select ::ng-deep .ng-select-container {
+  background-color: rgb(30 41 59); /* slate-800 */
+  border-color: rgb(51 65 85); /* slate-700 */
+  border-radius: 0.5rem;
+  min-height: 38px;
+}
+
+.piano-waveform-select ::ng-deep .ng-select-container:hover {
+  border-color: rgb(71 85 105); /* slate-600 */
+}
+
+.piano-waveform-select ::ng-deep .ng-select-container .ng-value-container .ng-input > input {
+  color: rgb(241 245 249); /* slate-100 */
+}
+
+.piano-waveform-select ::ng-deep .ng-select-container .ng-value-container .ng-value {
+  color: rgb(241 245 249); /* slate-100 */
+}
+
+.piano-waveform-select ::ng-deep .ng-arrow-wrapper {
+  color: rgb(148 163 184); /* slate-400 */
+}
+
+.piano-waveform-select ::ng-deep .ng-select-focused .ng-select-container,
+.piano-waveform-select ::ng-deep .ng-select-container:focus-within {
+  border-color: rgb(52 211 153); /* emerald-400 */
+  box-shadow: 0 0 0 2px rgb(52 211 153 / 0.25);
+}
+
+.piano-waveform-select ::ng-deep .ng-dropdown-panel {
+  background-color: rgb(15 23 42); /* slate-900 */
+  border-color: rgb(51 65 85); /* slate-700 */
+  color: rgb(241 245 249); /* slate-100 */
+}
+
+.piano-waveform-select ::ng-deep .ng-dropdown-panel .ng-option {
+  background-color: transparent;
+  color: rgb(241 245 249); /* slate-100 */
+}
+
+.piano-waveform-select ::ng-deep .ng-dropdown-panel .ng-option:hover,
+.piano-waveform-select ::ng-deep .ng-dropdown-panel .ng-option.ng-option-highlighted {
+  background-color: rgb(30 41 59); /* slate-800 */
+  color: rgb(52 211 153); /* emerald-400 */
+}
+
+.piano-waveform-select ::ng-deep .ng-dropdown-panel .ng-option.ng-option-selected {
+  background-color: rgb(16 185 129 / 0.2); /* emerald-500/20 */
+  color: rgb(52 211 153); /* emerald-400 */
+}
+
+.piano-waveform-select ::ng-deep .ng-dropdown-panel .ng-option.ng-option-selected.ng-option-marked {
+  background-color: rgb(16 185 129 / 0.35);
+}

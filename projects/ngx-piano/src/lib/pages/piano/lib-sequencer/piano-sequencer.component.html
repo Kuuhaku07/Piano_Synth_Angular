@@ -1,0 +1,150 @@
+<section
+  class="piano-sequencer mt-6 p-5 rounded-xl bg-slate-900/60 border border-slate-700/60 backdrop-blur"
+>
+  <header class="flex flex-wrap items-end gap-4 mb-4">
+    <div class="flex flex-col gap-1">
+      <label class="text-xs uppercase tracking-wider text-slate-400">BPM</label>
+      <input
+        type="number"
+        min="40"
+        max="240"
+        [ngModel]="bpm"
+        (ngModelChange)="setBpm($event)"
+        class="w-20 bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-xs uppercase tracking-wider text-slate-400">
+        Cuantización
+      </label>
+      <select
+        [ngModel]="quantization"
+        (ngModelChange)="setQuantization($event)"
+        class="bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+      >
+        <option value="1/4">1/4</option>
+        <option value="1/8">1/8</option>
+        <option value="1/16">1/16</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      (click)="togglePlay()"
+      class="px-4 py-1.5 rounded-md font-medium text-sm transition"
+      [class.bg-emerald-500]="!isPlaying"
+      [class.hover:bg-emerald-400]="!isPlaying"
+      [class.text-slate-900]="!isPlaying"
+      [class.bg-rose-500]="isPlaying"
+      [class.hover:bg-rose-400]="isPlaying"
+      [class.text-white]="isPlaying"
+    >
+      {{ isPlaying ? '⏸ Stop' : '▶ Play' }}
+    </button>
+
+    <button
+      type="button"
+      (click)="clear()"
+      class="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm transition"
+    >
+      Limpiar
+    </button>
+
+    <div class="ml-auto text-xs text-slate-400 font-mono">
+      {{ steps }} pasos · {{ (getStepDurationMs() / 1000).toFixed(2) }}s c/u
+    </div>
+  </header>
+
+  <!-- Grid -->
+  <div class="sequencer-grid-wrap overflow-x-auto">
+    <table class="sequencer-grid border-collapse">
+      <thead>
+        <tr>
+          <th class="note-col"></th>
+          <th
+            *ngFor="let s of [].constructor(steps); let i = index"
+            class="step-header"
+            [class.beat-start]="i % 4 === 0"
+          >
+            {{ i + 1 }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows">
+          <td
+            class="note-col"
+            [class.is-black]="
+              row.note === 'C#' ||
+              row.note === 'D#' ||
+              row.note === 'F#' ||
+              row.note === 'G#' ||
+              row.note === 'A#'
+            "
+          >
+            <span class="font-mono text-xs">{{ row.note }}{{ row.octave }}</span>
+          </td>
+          <td
+            *ngFor="let _ of [].constructor(steps); let i = index"
+            class="cell"
+            [class.beat-start]="i % 4 === 0"
+            [class.is-black]="
+              row.note === 'C#' ||
+              row.note === 'D#' ||
+              row.note === 'F#' ||
+              row.note === 'G#' ||
+              row.note === 'A#'
+            "
+            [class.has-block]="blockAt(row, i)"
+            [class.playing]="currentStep === i"
+            (pointerdown)="onPointerDown(row, i, $event)"
+            (pointerenter)="onPointerEnter(row, i)"
+          >
+            <!-- Render the block visual only on its START cell so a single
+                 long block doesn't get stacked on every cell it covers. -->
+            <span
+              *ngIf="blockStartingAt(row, i) as b"
+              class="block"
+              [class.is-long]="b.length > 1"
+              [style.width.%]="(100 / steps) * b.length - 2"
+              [attr.data-block-start]="b.start"
+              [attr.data-block-length]="b.length"
+            ></span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="mt-3 text-xs text-slate-400">
+    <strong>Click</strong> en una celda para crear/borrar un bloque.
+    <strong>Click y arrastrá</strong> para pintar un bloque largo. Estilo
+    FL Studio: si soltás sin mover, es toggle; si movés antes de soltar,
+    pinta el rango.
+  </p>
+
+  <!-- Export / output console -->
+  <div class="mt-4 pt-4 border-t border-slate-700/60">
+    <div class="flex items-center justify-between mb-2">
+      <label class="text-xs uppercase tracking-wider text-slate-400">
+        Output · MIDI note numbers
+      </label>
+      <button
+        type="button"
+        (click)="copyToClipboard()"
+        class="text-xs px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+      >
+        {{ copyLabel }}
+      </button>
+    </div>
+    <textarea
+      [ngModel]="textBuffer"
+      (ngModelChange)="loadFromText($event)"
+      (paste)="onPaste($event)"
+      rows="3"
+      class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-slate-100 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400/40 resize-y"
+      placeholder="60:1 64:2 67:4  (MIDI note : duración en steps)"
+    ></textarea>
+  </div>
+</section>

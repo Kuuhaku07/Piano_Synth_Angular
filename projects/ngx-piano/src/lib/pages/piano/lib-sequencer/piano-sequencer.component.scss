@@ -1,0 +1,106 @@
+.sequencer-grid-wrap {
+  background: rgb(2 6 23); /* slate-950 */
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid rgb(51 65 85); /* slate-700 */
+}
+
+.sequencer-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.note-col {
+  width: 60px;
+  min-width: 60px;
+  text-align: right;
+  padding: 2px 8px;
+  color: rgb(226 232 240); /* slate-200 */
+  background: rgb(15 23 42); /* slate-900 */
+  border-right: 1px solid rgb(51 65 85);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.note-col.is-black {
+  background: rgb(2 6 23); /* slate-950 */
+  color: rgb(148 163 184); /* slate-400 */
+}
+
+.step-header {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgb(100 116 139); /* slate-500 */
+  padding: 4px 0;
+  border-bottom: 1px solid rgb(51 65 85);
+  text-align: center;
+  width: calc((100% - 60px) / 16);
+}
+
+.step-header.beat-start {
+  color: rgb(148 163 184); /* slate-400 */
+  border-left: 1px solid rgb(71 85 105); /* slate-600 */
+}
+
+.cell {
+  position: relative;
+  height: 22px;
+  border-bottom: 1px solid rgb(30 41 59); /* slate-800 */
+  border-left: 1px solid rgb(30 41 59);
+  cursor: pointer;
+  transition: background-color 80ms ease;
+  user-select: none;
+}
+
+.cell.beat-start {
+  border-left: 1px solid rgb(71 85 105); /* slate-600 */
+}
+
+.cell:hover {
+  background-color: rgb(30 41 59 / 0.7);
+}
+
+.cell.is-black {
+  background-color: rgb(15 23 42 / 0.6);
+}
+
+.cell.is-black:hover {
+  background-color: rgb(30 41 59 / 0.9);
+}
+
+.cell.playing {
+  background-color: rgb(52 211 153 / 0.15); /* emerald-400/15 */
+}
+
+.cell.has-block {
+  background-color: rgb(52 211 153 / 0.08);
+}
+
+.block {
+  position: absolute;
+  inset: 2px 0;
+  background: linear-gradient(
+    180deg,
+    rgb(52 211 153), /* emerald-400 */
+    rgb(16 185 129) /* emerald-500 */
+  );
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgb(52 211 153 / 0.4);
+  pointer-events: none;
+}
+
+/* Multi-step blocks get a brighter top edge so you can tell at a glance
+   that one block spans several steps (rather than several 1-step blocks
+   sitting next to each other). */
+.block.is-long {
+  background: linear-gradient(
+    180deg,
+    rgb(110 231 183), /* emerald-300 */
+    rgb(52 211 153) /* emerald-400 */
+  );
+  box-shadow:
+    0 0 10px rgb(52 211 153 / 0.55),
+    inset 0 1px 0 rgb(167 243 208 / 0.7); /* subtle top highlight */
+}

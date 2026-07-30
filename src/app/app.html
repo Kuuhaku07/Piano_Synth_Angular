@@ -1,0 +1,14 @@
+<div class="min-h-screen bg-black text-white relative">
+  <div class="absolute inset-0 backdrop-blur-md"></div>
+
+  <!-- Efecto de grid -->
+  <div class="absolute inset-0 pointer-events-none">
+    <div
+      class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.08)_2px,transparent_2px),linear-gradient(90deg,rgba(255,255,255,0.08)_2px,transparent_2px)] bg-[size:32px_32px] sm:bg-[size:48px_48px] md:bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,black,transparent)]">
+    </div>
+  </div>
+
+  <div class="relative z-10">
+    <router-outlet></router-outlet>
+  </div>
+</div>

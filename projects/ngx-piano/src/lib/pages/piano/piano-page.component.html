@@ -1,0 +1,381 @@
+<div class="p-6">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Piano</h1>
+  </div>
+  <div class="piano-page">
+  <!-- Controls bar -->
+  <section
+    class="piano-controls flex flex-wrap items-end gap-6 p-5 rounded-xl bg-slate-900/60 border border-slate-700/60 backdrop-blur"
+  >
+    <div class="flex flex-col gap-2">
+      <label class="text-xs uppercase tracking-wider text-slate-400">
+        Octava
+      </label>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          (click)="shiftOctave(-1)"
+          [disabled]="baseOctave <= minOctave"
+          class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-100 font-bold transition"
+        >
+          −
+        </button>
+        <span class="min-w-[3rem] text-center font-mono text-lg text-slate-100">
+          C{{ baseOctave }}
+        </span>
+        <button
+          type="button"
+          (click)="shiftOctave(1)"
+          [disabled]="baseOctave >= maxOctave"
+          class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-100 font-bold transition"
+        >
+          +
+        </button>
+      </div>
+      <span class="text-[10px] text-slate-500">Z / X para bajar/subir</span>
+    </div>
+
+    <div class="flex flex-col gap-2 min-w-[180px]">
+      <label class="text-xs uppercase tracking-wider text-slate-400">
+        Volumen
+      </label>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        [(ngModel)]="volume"
+        (ngModelChange)="onVolumeChange()"
+        class="accent-emerald-400"
+      />
+      <span class="text-[10px] text-slate-500 text-right">{{ volume }}%</span>
+    </div>
+
+    <div class="flex flex-col gap-2 min-w-[260px]">
+      <label class="text-xs uppercase tracking-wider text-slate-400">
+        Waveform
+      </label>
+      <div class="flex items-center gap-3">
+        <select
+          class="piano-waveform-select flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"
+          [(ngModel)]="waveform"
+          (ngModelChange)="onWaveformChange()"
+        >
+          @for (opt of waveformOptions; track opt) {
+            <option [value]="opt">{{ opt }}</option>
+          }
+        </select>
+        <svg
+          class="w-24 h-10 rounded bg-slate-950 border border-slate-800 shrink-0"
+          viewBox="0 0 96 40"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            [attr.d]="waveformPath(waveform)"
+            fill="none"
+            stroke="#34d399"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"
+          />
+          <line
+            x1="0"
+            y1="20"
+            x2="96"
+            y2="20"
+            stroke="#1e293b"
+            stroke-width="0.5"
+          />
+        </svg>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      (click)="stopEverything()"
+      class="ml-auto px-4 py-2 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-medium transition shadow-lg shadow-rose-500/20"
+    >
+      ⏹ Detener
+    </button>
+  </section>
+
+  <!-- Keyboard -->
+  <section
+    class="piano-keyboard mt-6 p-6 rounded-xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 shadow-2xl shadow-black/40"
+  >
+    <div class="relative h-56 select-none flex gap-px">
+      <ng-container *ngFor="let slot of keySlots">
+        <!-- White key (always rendered for the slot) -->
+        <div class="relative flex-1 h-full piano-white-slot">
+          <button
+            *ngIf="slot.white"
+            type="button"
+            (mousedown)="pressKey(slot.white)"
+            (mouseup)="releaseKey(slot.white)"
+            (mouseleave)="releaseKey(slot.white)"
+            (touchstart)="pressKey(slot.white); $event.preventDefault()"
+            (touchend)="releaseKey(slot.white); $event.preventDefault()"
+            [class.is-active]="isActive(slot.white)"
+            class="absolute inset-0 rounded-b-md bg-white text-slate-900 border border-slate-300 shadow-md transition active:translate-y-0.5 piano-key flex flex-col justify-end items-center pb-3"
+          >
+            <span class="text-[11px] font-mono opacity-70">{{
+              slot.white.label
+            }}</span>
+            <span
+              *ngIf="slot.white.hotkey"
+              class="text-[10px] uppercase tracking-wider text-emerald-600 font-semibold mt-0.5"
+            >
+              {{ slot.white.hotkey }}
+            </span>
+          </button>
+
+          <!-- Black key that belongs to THIS white slot (placed on its right edge) -->
+          <button
+            *ngIf="slot.black"
+            type="button"
+            (mousedown)="pressKey(slot.black)"
+            (mouseup)="releaseKey(slot.black)"
+            (mouseleave)="releaseKey(slot.black)"
+            (touchstart)="pressKey(slot.black); $event.preventDefault()"
+            (touchend)="releaseKey(slot.black); $event.preventDefault()"
+            [class.is-active]="isActive(slot.black)"
+            class="absolute right-0 top-0 h-2/3 w-[60%] translate-x-1/2 bg-slate-900 text-slate-100 border border-slate-950 rounded-b-md shadow-lg z-10 piano-key piano-black flex flex-col justify-end items-center pb-2"
+          >
+            <span class="text-[10px] font-mono opacity-80">{{
+              slot.black.label
+            }}</span>
+            <span
+              *ngIf="slot.black.hotkey"
+              class="text-[9px] uppercase tracking-wider text-emerald-400 font-semibold"
+            >
+              {{ slot.black.hotkey }}
+            </span>
+          </button>
+        </div>
+      </ng-container>
+    </div>
+
+    <p class="mt-4 text-xs text-slate-400">
+      Tip: usá el teclado — octava 4:
+      <span class="font-mono text-emerald-300">Z X C V B N M</span>
+      (blancas) y
+      <span class="font-mono text-emerald-300">Q W R T Y</span>
+      (negras) · octava 5:
+      <span class="font-mono text-emerald-300">A S D F G H J</span>
+      (blancas) y
+      <span class="font-mono text-emerald-300">U I</span>
+      (negras) ·
+      <span class="font-mono text-emerald-300">← →</span>
+      cambia la octava.
+    </p>
+  </section>
+
+  <!-- Sequencer / piano roll -->
+  <lib-piano-sequencer
+    [waveform]="waveform"
+    [baseOctave]="baseOctave"
+    [octaveCount]="2"
+  ></lib-piano-sequencer>
+
+  <!-- Presets -->
+  <section
+    class="piano-presets mt-6 p-5 rounded-xl bg-slate-900/60 border border-slate-700/60 backdrop-blur"
+  >
+    <header class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-slate-100 font-semibold text-lg">
+          Sonidos predefinidos
+        </h3>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Toca cualquiera para escucharlo con el instrumento seleccionado.
+        </p>
+      </div>
+      <button
+        type="button"
+        (click)="stopEverything()"
+        class="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+      >
+        Detener todo
+      </button>
+    </header>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      @for (key of presetKeys; track key) {
+      <div
+        class="relative rounded-lg border text-slate-100 transition group"
+        [ngClass]="presetCardClasses(key)"
+      >
+        <button
+          type="button"
+          (click)="playPreset(key)"
+          class="text-left w-full px-4 py-3 rounded-lg hover:bg-emerald-500/10 transition"
+        >
+          <span class="block text-sm font-medium flex items-center gap-2">
+            {{ presetLabels[key] || key }}
+            @if (isPresetPlaying(key)) {
+            <span
+              class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"
+            ></span>
+            }
+          </span>
+          <span class="block text-[10px] text-slate-400 font-mono mt-0.5">
+            {{ key }}
+          </span>
+        </button>
+        <!-- Loop switch on the bottom-right corner of each card. -->
+        <label
+          class="absolute bottom-1.5 right-1.5 flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer select-none"
+          (click)="$event.stopPropagation()"
+        >
+          <span [class.text-emerald-400]="isPresetLooping(key)">Loop</span>
+          <span
+            class="relative inline-block w-7 h-3.5 rounded-full transition"
+            [class.bg-emerald-500]="isPresetLooping(key)"
+            [class.bg-slate-600]="!isPresetLooping(key)"
+          >
+            <span
+              class="absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white transition-transform"
+              [class.translate-x-3.5]="isPresetLooping(key)"
+              [class.translate-x-0]="!isPresetLooping(key)"
+            ></span>
+          </span>
+          <input
+            type="checkbox"
+            class="sr-only"
+            [checked]="isPresetLooping(key)"
+            (change)="togglePresetLoop(key)"
+          />
+        </label>
+      </div>
+      }
+    </div>
+  </section>
+
+  <!-- Guardar secuencia (cache editable de presets) -->
+  <section
+    class="piano-cache mt-6 p-5 rounded-xl bg-slate-900/60 border border-slate-700/60 backdrop-blur"
+  >
+    <header class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-slate-100 font-semibold text-lg">
+          Guardar secuencia
+        </h3>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Pegá una secuencia válida en formato
+          <span class="font-mono text-slate-300">step&#64;midi:length</span>
+          (ej.
+          <span class="font-mono text-slate-300">0&#64;60:2 4&#64;64:4</span>)
+          o capturá la actual del piano roll.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          (click)="captureFromSequencer()"
+          class="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+        >
+          Capturar del piano roll
+        </button>
+        <button
+          type="button"
+          (click)="stopEverything()"
+          class="text-xs px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+        >
+          Detener todo
+        </button>
+      </div>
+    </header>
+
+    <div class="grid gap-3 mb-4">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <input
+          type="text"
+          [(ngModel)]="sequenceInputName"
+          (ngModelChange)="onSequenceInputChange()"
+          placeholder="Nombre (opcional)"
+          class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 placeholder:text-slate-500 text-sm"
+        />
+        <button
+          type="button"
+          (click)="saveSequence()"
+          class="text-sm px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold transition"
+        >
+          Guardar
+        </button>
+      </div>
+      <textarea
+        [(ngModel)]="sequenceInputText"
+        (ngModelChange)="onSequenceInputChange()"
+        rows="3"
+        placeholder="0&#64;60:2 4&#64;64:4 8&#64;[60,64,67]:2"
+        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 placeholder:text-slate-500 font-mono text-xs"
+      ></textarea>
+      @if (sequenceInputError) {
+      <p class="text-xs text-rose-400">{{ sequenceInputError }}</p>
+      }
+    </div>
+
+    @if (cachedSequences.length === 0) {
+    <p class="text-xs text-slate-500 italic">
+      Aún no guardaste ninguna secuencia. Pegá un patrón arriba y tocá Guardar.
+    </p>
+    } @else {
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      @for (item of cachedSequences; track item.id) {
+      <div
+        class="relative rounded-lg border text-slate-100 transition group"
+        [class]="
+          isCachedPlaying(item.id)
+            ? 'bg-emerald-500/20 border-emerald-400 ring-2 ring-emerald-400'
+            : 'bg-slate-800/80 border-slate-700'
+        "
+      >
+        <button
+          type="button"
+          (click)="playCachedSequence(item)"
+          class="text-left w-full px-4 py-3 rounded-lg hover:bg-emerald-500/10 transition"
+        >
+          <span class="block text-sm font-medium flex items-center gap-2">
+            {{ item.name }}
+            @if (isCachedPlaying(item.id)) {
+            <span
+              class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"
+            ></span>
+            }
+          </span>
+          <span
+            class="block text-[10px] text-slate-400 font-mono mt-0.5 truncate"
+            [title]="item.text"
+          >
+            {{ item.text }}
+          </span>
+        </button>
+        <div
+          class="absolute bottom-1.5 right-1.5 flex items-center gap-1.5 text-[10px] text-slate-400"
+          (click)="$event.stopPropagation()"
+        >
+          <button
+            type="button"
+            (click)="loadIntoSequencer(item)"
+            title="Cargar al piano roll para editar"
+            class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-100 transition"
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            (click)="removeSequence(item.id)"
+            title="Eliminar"
+            class="px-2 py-0.5 rounded bg-slate-700 hover:bg-rose-600 text-slate-100 transition"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      }
+    </div>
+    }
+  </section>
+  </div>
+</div>
