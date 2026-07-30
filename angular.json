@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "ngx-piano-app": {
+    "soundboard-app": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -17,7 +17,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/ngx-piano-app",
+            "outputPath": "dist/soundboard-app",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
@@ -61,10 +61,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "ngx-piano-app:build:production"
+              "buildTarget": "soundboard-app:build:production"
             },
             "development": {
-              "buildTarget": "ngx-piano-app:build:development"
+              "buildTarget": "soundboard-app:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -91,23 +91,23 @@
         }
       }
     },
-    "ngx-piano": {
+    "soundboard-ng": {
       "projectType": "library",
-      "root": "projects/ngx-piano",
-      "sourceRoot": "projects/ngx-piano/src",
+      "root": "projects/soundboard-ng",
+      "sourceRoot": "projects/soundboard-ng/src",
       "prefix": "lib",
       "architect": {
         "build": {
           "builder": "@angular-devkit/build-angular:ng-packagr",
           "options": {
-            "project": "projects/ngx-piano/ng-package.json"
+            "project": "projects/soundboard-ng/ng-package.json"
           },
           "configurations": {
             "production": {
-              "tsConfig": "projects/ngx-piano/tsconfig.lib.prod.json"
+              "tsConfig": "projects/soundboard-ng/tsconfig.lib.prod.json"
             },
             "development": {
-              "tsConfig": "projects/ngx-piano/tsconfig.lib.json"
+              "tsConfig": "projects/soundboard-ng/tsconfig.lib.json"
             }
           },
           "defaultConfiguration": "production"
@@ -115,7 +115,7 @@
         "test": {
           "builder": "@angular-devkit/build-angular:karma",
           "options": {
-            "tsConfig": "projects/ngx-piano/tsconfig.spec.json",
+            "tsConfig": "projects/soundboard-ng/tsconfig.spec.json",
             "inlineStyleLanguage": "scss"
           }
         }

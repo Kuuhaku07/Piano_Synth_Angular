@@ -6,7 +6,7 @@
       "node"
     ],
     "paths": {
-      "@ngx-piano": ["dist/ngx-piano"]
+      "@soundboard-ng": ["dist/soundboard-ng"]
     }
   },
   "files": [

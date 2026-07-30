@@ -1,8 +1,8 @@
-# ngx-piano
+# soundboard-ng
 
-Librería Angular 17 + dashboard standalone del módulo Piano: sintetizador 100% en navegador (Web Audio API), secuenciador tipo piano roll, presets predefinidos y cache editable de secuencias en `localStorage`.
+Librería Angular 17 standalone + dashboard del módulo Soundboard: sintetizador 100% en navegador (Web Audio API), secuenciador tipo piano roll, presets predefinidos y cache editable de secuencias en `localStorage`.
 
-Pensada para centralizar el código del piano y consumirlo desde otros repos vía GitHub Releases.
+Pensada para centralizar el código del soundboard y consumirlo desde otros proyectos vía npm (`soundboard-ng`).
 
 ---
 
@@ -27,7 +27,7 @@ Pensada para centralizar el código del piano y consumirlo desde otros repos ví
 npm install
 npm start                # dashboard dev server (http://localhost:4200)
 npm run build            # build de la app dashboard
-npm run build:lib        # build de la librería → dist/ngx-piano/
+npm run build:lib        # build de la librería → dist/soundboard-ng/
 npm test
 ```
 
@@ -36,19 +36,19 @@ npm test
 ## Estructura
 
 ```
-projects/ngx-piano/        # librería (ng-packagr)
+projects/soundboard-ng/        # librería (ng-packagr)
   src/
-    public-api.ts           # exports granulares
+    public-api.ts                # exports granulares
     lib/
-      piano.module.ts       # NgModule para consumidores clásicos
+      piano.module.ts            # NgModule para consumidores clásicos
       pages/piano/
-        piano-page.component.{ts,html,scss}     # <lib-piano-page>
+        piano-page.component.{ts,html,scss}      # <lib-piano-page>
         lib-sequencer/piano-sequencer.component.{ts,html,scss}  # <lib-piano-sequencer>
       services/
-        piano-sound.service.ts        # motor de audio
-        piano-presets.ts              # 8 presets predefinidos
-        sequence-cache.service.ts     # CRUD en localStorage
-src/app/                    # dashboard app (standalone, standalone-only)
+        piano-sound.service.ts    # motor de audio
+        piano-presets.ts          # presets cargables (defaults + JSON del consumidor)
+        sequence-cache.service.ts # CRUD en localStorage
+src/app/                # dashboard app (standalone)
 ```
 
 ---
@@ -58,10 +58,10 @@ src/app/                    # dashboard app (standalone, standalone-only)
 En el `package.json` del consumidor:
 
 ```json
-"ngx-piano": "https://github.com/dev1-tecnosystem/ngx-piano/releases/download/vX.Y.Z/ngx-piano-X.Y.Z.tgz"
+"soundboard-ng": "^0.1.0"
 ```
 
-Después `npm install`. La librería es Angular 17 standalone, así que necesita Angular >= 17 en el peer.
+Después `npm install`. La librería es Angular 17 standalone; necesita Angular >= 17 en el peer.
 
 ---
 
@@ -70,31 +70,32 @@ Después `npm install`. La librería es Angular 17 standalone, así que necesita
 ```ts
 import {
   // Componentes standalone
-  PianoPageComponent,        // <lib-piano-page>
-  PianoSequencerComponent,   // <lib-piano-sequencer>
+  PianoPageComponent,         // <lib-piano-page>
+  PianoSequencerComponent,    // <lib-piano-sequencer>
 
   // Servicios
-  PianoSoundService,         // motor de audio (síntesis + secuencias)
-  SequenceCacheService,      // CRUD de secuencias en localStorage
+  PianoSoundService,          // motor de audio (síntesis + secuencias)
+  PianoPresetsService,        // cargador de presets (defaults + JSON del consumidor)
+  SequenceCacheService,       // CRUD de secuencias en localStorage
 
   // Constantes y helpers
-  PianoPresets,              // Record<string, string> — presets predefinidos
-  isValidSequence,           // (text: string) => boolean
+  PIANO_PRESETS_DEFAULT,      // defaults congelados de la lib
+  isValidSequence,            // (text: string) => boolean
 
   // NgModule (opcional, para consumidores clásicos)
   PianoModule,
 
   // Tipos
-  type NoteName,             // 'C' | 'C#' | 'D' | ... | 'B'
-  type Pitch,                // { note: NoteName; octave: number }
-  type VoiceName,            // 'piano' | 'bell' | 'organ' | ... | 'glass' | ...
-  type Harmonic,             // { mult: number; gain: number; type?: OscillatorType }
-  type SequenceStep,         // { note, durationMs } | { chord, durationMs } | { restMs }
-  type PlayOptions,          // { durationMs?, velocity?, waveform? }
-  type SequenceOptions,      // { gapMs?, waveform?, velocity?, legatoMs?, humanize?, velocityHumanize? }
-  type PianoPresetKey,       // keyof typeof PianoPresets
-  type CachedSequence,       // { id, name, text, createdAt }
-} from 'ngx-piano';
+  type NoteName,              // 'C' | 'C#' | 'D' | ... | 'B'
+  type Pitch,                 // { note: NoteName; octave: number }
+  type VoiceName,             // 'piano' | 'bell' | 'organ' | ... | 'glass' | ...
+  type Harmonic,              // { mult: number; gain: number; type?: OscillatorType }
+  type SequenceStep,          // { note, durationMs } | { chord, durationMs } | { restMs }
+  type PlayOptions,           // { durationMs?, velocity?, waveform? }
+  type SequenceOptions,       // { gapMs?, waveform?, velocity?, legatoMs?, humanize?, velocityHumanize? }
+  type PianoPresetKey,        // keyof typeof PIANO_PRESETS_DEFAULT
+  type CachedSequence,        // { id, name, text, createdAt }
+} from 'soundboard-ng';
 ```
 
 ---
@@ -107,7 +108,7 @@ Componente standalone que renderiza el dashboard completo: controles (octava, vo
 
 ```ts
 import { Component } from '@angular/core';
-import { PianoPageComponent } from 'ngx-piano';
+import { PianoPageComponent } from 'soundboard-ng';
 
 @Component({
   standalone: true,
@@ -151,7 +152,7 @@ Es el corazón de la librería. Inyectalo en cualquier componente o servicio y s
 
 ```ts
 import { Injectable } from '@angular/core';
-import { PianoSoundService } from 'ngx-piano';
+import { PianoSoundService } from 'soundboard-ng';
 
 @Injectable({ providedIn: 'root' })
 export class MyAudioThing {
@@ -311,7 +312,7 @@ Más cualquier `OscillatorType` estándar de Web Audio: `'sine'`, `'square'`, `'
 
 ```ts
 import { Component, inject } from '@angular/core';
-import { PianoSoundService, PianoPresets, NoteName, Pitch } from 'ngx-piano';
+import { PianoSoundService, PianoPresetsService, NoteName, Pitch } from 'soundboard-ng';
 
 @Component({
   selector: 'app-my-button',
@@ -335,7 +336,9 @@ export class MyButton {
       { waveform: 'bell' },
     );
     // Preset predefinido
-    await this.piano.playMidiSteps(PianoPresets.flow, { loop: true });
+    const presets = inject(PianoPresetsService);
+    await presets.loadAll();
+    await this.piano.playMidiSteps(presets.get('flow') ?? '', { loop: true });
   }
 
   ngOnDestroy() {
@@ -349,37 +352,37 @@ export class MyButton {
 
 ## `PianoPresets` — formato MIDI:step
 
-`PianoPresets` es un `Record<string, string>` con 8 patrones listos para usar:
+Los presets viven en dos lugares:
 
-```ts
-import { PianoPresets, PianoPresetKey } from 'ngx-piano';
+1. **`PIANO_PRESETS_DEFAULT`** (exportado por la lib): 8 patrones hardcoded como fallback.
+2. **`assets/piano-presets.json`** del consumidor: presets custom que se mergean sobre los defaults en runtime.
 
-PianoPresets.success;   // '2@64:1 4@68:1 5@71:1'
-PianoPresets.gentle;    // '0@[36,43]:12 0@76:4 ...'
-PianoPresets.flow;
-PianoPresets.alert;
-PianoPresets.bounce;
-PianoPresets.chime;
-PianoPresets.test;
-PianoPresets.test2;
+`PianoPresetsService` carga los defaults + el JSON del consumidor (si existe) y los expone vía `get(name)`, `getAll()`, `keys()`.
 
-await this.piano.playMidiSteps(PianoPresets.alert, { waveform: 'bell' });
+### Cómo personalizar los presets SIN tocar la librería
+
+1. En el consumidor, creá `src/assets/piano-presets.json` con tu propio set. Mismo formato `{ "nombre": "0@60:2 4@64:4" }`.
+2. Asegurate de que `HttpClient` esté disponible (`provideHttpClient()` en `app.config.ts`).
+3. Nada más. Los presets se cargan al inicializar el servicio y se mergean con los defaults (tu JSON gana si hay claves duplicadas).
+
+Ejemplo de `src/assets/piano-presets.json`:
+```json
+{
+  "wakeup":  "0@60:4 4@64:4 8@67:4 12@72:8",
+  "alertar": "0@67:1 1@72:1 2@76:4",
+  "intro":   "0@[60,64,67]:8 8@72:8 16@[60,64,67,72]:8"
+}
 ```
 
-### Formato del string
+Si el JSON no existe o falla la carga, se usan los defaults.
 
-Cada token describe un evento:
+### Formato del string MIDI:step
 
-- **`step@midi:length`** — una nota
-  - `step` — step en el que arranca (0-based)
-  - `midi` — número MIDI (60 = C4, 69 = A4 = 440 Hz, etc.)
-  - `length` — duración en steps
-
-- **`step@[m1,m2,...]:length`** — un acorde (varias notas MIDI simultáneas)
+- **`step@midi:length`** — una nota (`step` step inicial, `midi` nota MIDI, `length` duración en steps)
+- **`step@[m1,m2,...]:length`** — un acorde
 - **`midi:length`** o **`[m1,m2,...]:length`** — sin step explícito, auto-incrementa
 
 Ejemplos:
-
 ```text
 0@60:2           → MIDI 60 (C4) durante 2 steps, arrancando en step 0
 2@67:4           → MIDI 67 (G4) durante 4 steps, arrancando en step 2
@@ -389,7 +392,7 @@ Ejemplos:
 
 **Importante**: el servicio schedulea cada token en el step EXACTO que escribiste — no son secuenciales. Si querés que suenen uno tras otro, tenés que especificar steps crecientes.
 
-Duración de step: **200 ms** por default (configurable vía `stepMs` en `playMidiSteps`). Eso da 100 BPM @ figuras de 1/16.
+Duración de step: **200 ms** por default (configurable vía `stepMs` en `playMidiSteps`).
 
 ---
 
@@ -399,7 +402,7 @@ Cache editable de secuencias en `localStorage`. La UI del `<lib-piano-page>` lo 
 
 ```ts
 import { inject } from '@angular/core';
-import { SequenceCacheService, isValidSequence, CachedSequence } from 'ngx-piano';
+import { SequenceCacheService, isValidSequence, CachedSequence } from 'soundboard-ng';
 
 const cache = inject(SequenceCacheService);
 
@@ -414,56 +417,51 @@ const all: CachedSequence[] = cache.list();
 cache.remove(item.id);
 ```
 
-Storage key: `piano-sequence-cache-v1`. Maneja errores de quota / `localStorage` deshabilitado silenciosamente (estado en memoria sigue funcionando).
+Storage key: `piano-sequence-cache-v1`. Maneja errores de quota / `localStorage` deshabilitado silenciosamente.
 
 ---
 
 ## Tailwind en el consumidor
 
-Los componentes del piano usan clases Tailwind (`bg-slate-900`, `bg-emerald-500`, `rounded-xl`, etc.). Para que el consumidor las compile, agregá la ruta del FESM en `content`:
+Los componentes usan clases Tailwind (`bg-slate-900`, `bg-emerald-500`, `rounded-xl`, etc.). Agregá la ruta del FESM al `content`:
 
 ```js
 // tailwind.config.js del consumidor
 module.exports = {
   content: [
     './src/**/*.{html,ts}',
-    './node_modules/ngx-piano/fesm2022/**/*.mjs',  // ← clave
+    './node_modules/soundboard-ng/fesm2022/**/*.mjs',
   ],
 };
 ```
 
-Si usás Tailwind v4, ajustá el `content` según corresponda (`@source` directive).
+Si usás Tailwind v4, ajustá el `content` según corresponda.
 
 ---
 
 ## Flujo de publicación
 
-Cuando hagas cambios en el código del piano:
-
 ```bash
 # 1. Compilar la librería
 npm run build:lib
 
-# 2. Empaquetar como tarball
-npm pack dist/ngx-piano --pack-destination .
-mv ngx-piano-0.0.1.tgz ngx-piano-X.Y.Z.tgz
+# 2. Empaquetar (opcional, para subir como asset a GitHub Release)
+npm pack dist/soundboard-ng --pack-destination .
 
-# 3. Bumpear la versión en projects/ngx-piano/package.json
+# 3. Bumpear la versión en projects/soundboard-ng/package.json
 
-# 4. Commit + tag + push (incluyendo dist/ngx-piano/ commiteado)
+# 4. Commit + push
 git add -A
-git commit -m "feat: nuevos cambios del piano"
-git tag vX.Y.Z
-git push origin main --tags
+git commit -m "feat: nuevos cambios"
+git push origin main
 
-# 5. Crear release en GitHub y subir el tarball como asset
-#    https://github.com/dev1-tecnosystem/ngx-piano/releases/new
+# 5. Publicar a npm
+cd dist/soundboard-ng
+npm publish --access public
 ```
 
 En cada consumidor:
-
 ```bash
-# Bumpear la URL en package.json y reinstalar
 npm install
 ```
 
@@ -473,4 +471,4 @@ npm install
 
 - Angular 17+ (los componentes son standalone, pero `PianoModule` exporta un NgModule para consumidores clásicos).
 - Web Audio API (todos los navegadores modernos).
-- Requiere gesto del usuario para la primera reproducción (política de autoplay del navegador).
+- Requiere gesto del usuario para la primera reproducción.

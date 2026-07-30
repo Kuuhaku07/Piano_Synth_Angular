@@ -2,7 +2,7 @@
 module.exports = {
   content: [
     './src/**/*.{html,ts}',
-    './dist/ngx-piano/**/*.{html,mjs}',
+    './dist/soundboard-ng/**/*.{html,mjs}',
   ],
   theme: {
     extend: {},

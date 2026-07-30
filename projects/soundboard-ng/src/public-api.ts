@@ -1,5 +1,5 @@
 /*
- * Public API Surface of ngx-piano
+ * Public API Surface of soundboard-ng
  */
 
 export { PianoPageComponent } from './lib/pages/piano/piano-page.component';

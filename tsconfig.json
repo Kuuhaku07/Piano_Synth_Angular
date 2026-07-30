@@ -22,7 +22,8 @@
     "types": ["node"],
     "typeRoots": ["node_modules/@types"],
     "paths": {
-      "@ngx-piano": ["dist/ngx-piano"]
+      "@soundboard-ng": ["dist/soundboard-ng"],
+      "soundboard-ng": ["dist/soundboard-ng"]
     }
   },
   "angularCompilerOptions": {

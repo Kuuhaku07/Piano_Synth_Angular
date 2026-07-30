@@ -1,4 +1,4 @@
-name: Release ngx-piano
+name: Release soundboard-ng
 
 # Compila la librería y publica en npm cuando se pushea un tag "v*".
 # El tarball se sube al GitHub Release como asset binario.
@@ -9,7 +9,7 @@ name: Release ngx-piano
 #   2. Settings → Actions → "Allow all actions and reusable workflows"
 #
 # Uso:
-#   npm version patch   # 0.0.2 → 0.0.3
+#   git tag v0.1.1
 #   git push origin main --tags
 #   → el workflow publica en npm y crea el GitHub Release.
 
@@ -44,15 +44,13 @@ jobs:
       - name: Bump version + pack
         id: pack
         run: |
-          cd projects/ngx-piano
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(node -p "require('./projects/soundboard-ng/package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          cd ../..
-          npm pack dist/ngx-piano --pack-destination .
-          ls -la ngx-piano-*.tgz
+          npm pack dist/soundboard-ng --pack-destination .
+          ls -la soundboard-ng-*.tgz
 
       - name: Publish to npm
-        working-directory: dist/ngx-piano
+        working-directory: dist/soundboard-ng
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -61,14 +59,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ngx-piano ${{ steps.pack.outputs.version }}
+          name: soundboard-ng ${{ steps.pack.outputs.version }}
           body: |
-            Librería Angular 17 standalone del piano (sintetizador + secuenciador + presets).
+            Librería Angular 17 standalone del soundboard (sintetizador + secuenciador + presets).
 
             ## Instalación
 
             ```bash
-            npm install ngx-piano@${{ steps.pack.outputs.version }}
+            npm install soundboard-ng@${{ steps.pack.outputs.version }}
             ```
-          files: ngx-piano/ngx-piano-${{ steps.pack.outputs.version }}.tgz
+          files: soundboard-ng/soundboard-ng-${{ steps.pack.outputs.version }}.tgz
           fail_on_unmatched_files: true
