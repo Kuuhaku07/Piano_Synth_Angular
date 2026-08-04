@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { hasValidMidiStepToken } from './midi-step-parser';
 
 export interface CachedSequence {
   /** Stable unique id (timestamp-based). */
@@ -23,26 +24,7 @@ const STORAGE_KEY = 'piano-sequence-cache-v1';
  * length) tuple, so the UI can reject empty / garbage input.
  */
 export function isValidSequence(text: string): boolean {
-  if (!text || !text.trim()) return false;
-  const tokens = text
-    .replace(/[\n,;]/g, ' ')
-    .split(/\s+/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-  if (tokens.length === 0) return false;
-
-  const explicitNote = /^(\d{1,3})@(\d{1,3}):(\d{1,3})$/;
-  const explicitChord = /^(\d{1,3})@\[([^\]]+)\]:(\d{1,3})$/;
-  const seqNote = /^(\d{1,3}):(\d{1,3})$/;
-  const seqChord = /^\[([^\]]+)\]:(\d{1,3})$/;
-
-  for (const tok of tokens) {
-    if (explicitNote.test(tok)) return true;
-    if (explicitChord.test(tok)) return true;
-    if (seqNote.test(tok)) return true;
-    if (seqChord.test(tok)) return true;
-  }
-  return false;
+  return hasValidMidiStepToken(text);
 }
 
 @Injectable({ providedIn: 'root' })

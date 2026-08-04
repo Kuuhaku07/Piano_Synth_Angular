@@ -22,8 +22,8 @@
     "types": ["node"],
     "typeRoots": ["node_modules/@types"],
     "paths": {
-      "@soundboard-ng": ["dist/soundboard-ng"],
-      "soundboard-ng": ["dist/soundboard-ng"]
+      "@soundboard-ng": ["projects/soundboard-ng/src/public-api.ts"],
+      "soundboard-ng": ["projects/soundboard-ng/src/public-api.ts"]
     }
   },
   "angularCompilerOptions": {

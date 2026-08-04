@@ -1,30 +1,14 @@
 import { Injectable } from '@angular/core';
+import {
+  midiToPitch,
+  NOTE_INDEX,
+  parsePitch,
+  type NoteName,
+  type Pitch,
+} from './music-theory';
+import { parseMidiStepTokens } from './midi-step-parser';
 
-/**
- * Musical note name. Sharps only; flats can be normalized to sharps by the
- * caller (e.g. Db -> C#).
- */
-export type NoteName =
-  | 'C'
-  | 'C#'
-  | 'D'
-  | 'D#'
-  | 'E'
-  | 'F'
-  | 'F#'
-  | 'G'
-  | 'G#'
-  | 'A'
-  | 'A#'
-  | 'B';
-
-/**
- * A single pitch. Middle C is C4 (= MIDI 60).
- */
-export interface Pitch {
-  note: NoteName;
-  octave: number;
-}
+export type { NoteName, Pitch } from './music-theory';
 
 /**
  * Composite voices — each one is a mix of harmonics built from standard
@@ -145,29 +129,6 @@ export interface Harmonic {
  */
 const A4_MIDI = 69;
 const A4_FREQ = 440;
-
-const NOTE_INDEX: Record<NoteName, number> = {
-  C: 0,
-  'C#': 1,
-  D: 2,
-  'D#': 3,
-  E: 4,
-  F: 5,
-  'F#': 6,
-  G: 7,
-  'G#': 8,
-  A: 9,
-  'A#': 10,
-  B: 11,
-};
-
-const FLAT_TO_SHARP: Record<string, NoteName> = {
-  Db: 'C#',
-  Eb: 'D#',
-  Gb: 'F#',
-  Ab: 'G#',
-  Bb: 'A#',
-};
 
 /**
  * Generates musical tones using the Web Audio API. No external assets
@@ -455,28 +416,7 @@ export class PianoSoundService {
    * Returns null if the string cannot be parsed.
    */
   parsePitch(input: string): Pitch | null {
-    if (!input) return null;
-    const trimmed = String(input).trim();
-    const match = /^([A-Ga-g])([#b]?)(-?\d+)$/.exec(trimmed);
-    if (!match) return null;
-    const letter = match[1].toUpperCase() as 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
-    const accidental = match[2];
-    const octave = parseInt(match[3], 10);
-
-    let base: string;
-    if (accidental === '#') {
-      base = letter + '#';
-    } else if (accidental === 'b') {
-      base = letter + 'b';
-      const normalized = FLAT_TO_SHARP[base];
-      if (!normalized) return null;
-      base = normalized;
-    } else {
-      base = letter;
-    }
-
-    if (!(base in NOTE_INDEX)) return null;
-    return { note: base as NoteName, octave };
+    return parsePitch(input);
   }
 
   /**
@@ -488,15 +428,6 @@ export class PianoSoundService {
     return A4_FREQ * Math.pow(2, (midi - A4_MIDI) / 12);
   }
 
-  /**
-   * Plays a single note. Pass either a "C4" string or a Pitch object.
-   * If `durationMs` is given the note auto-stops after that. Otherwise it
-   * is held until `stopNote()` is called with the same pitch.
-   *
-   * The envelope has a soft attack (~18ms), a slow exponential release
-   * (~220ms), and a gentle mid-sustain dip on long notes so they don't
-   * sound flat — much more organic than a pure on/off oscillator.
-   */
   /**
    * Plays a single note. Pass either a "C4" string or a Pitch object.
    * If `durationMs` is given the note auto-stops after that. Otherwise it
@@ -703,20 +634,6 @@ export class PianoSoundService {
   }
 
   /**
-   * Schedules a sequence of steps to be played one after another. Each step
-   * has its own `durationMs`; `gapMs` adds silence between consecutive steps.
-   *
-   * Legato / humanization defaults (override via SequenceOptions):
-   *  - `legatoMs: 60`     — each step starts this many ms BEFORE the
-   *                         previous one finishes, blending into it instead
-   *                         of leaving a hard gap.
-   *  - `humanize: 0.08`   — timing of each step's wait is nudged by up to
-   *                         ±8 % randomly, so the rhythm doesn't feel
-   *                         quantized / robotic.
-   *  - `velocityHumanize: 0.12` — each note's velocity is nudged by up to
-   *                         ±12 %, adding natural dynamic variation.
-   *
-  /**
    * Schedules a sequence of steps to be played one after another.
    *
    * Uses a look-ahead scheduler: a `setTimeout` tick (every 25ms) decides
@@ -767,16 +684,27 @@ export class PianoSoundService {
       note?: string;
       chord?: string[];
       durationMs?: number;
+      velocity: number;
     }
 
     const events: ScheduledEvent[] = [];
     let cursorMs = 0;
+    let prevCursorMs = 0;
 
     for (const step of steps) {
-      // Apply timing humanization to each step's start time.
+      // Apply timing humanization to each step's wait (delta from the
+      // previous step), not to the absolute cursor — perturbing the
+      // absolute cursor would let a jitter push earlier events into
+      // the past and cause overlap. We add the jittered delta to the
+      // running cursor instead.
       if (humanize > 0 && events.length > 0) {
+        const delta = cursorMs - prevCursorMs;
         const jitter = 1 + (Math.random() * 2 - 1) * humanize;
-        cursorMs = Math.max(0, cursorMs * jitter);
+        const jitteredDelta = Math.max(0, delta * jitter);
+        prevCursorMs = cursorMs;
+        cursorMs = cursorMs - delta + jitteredDelta;
+      } else {
+        prevCursorMs = cursorMs;
       }
 
       if ('restMs' in step) {
@@ -799,8 +727,7 @@ export class PianoSoundService {
           kind: 'note',
           note: step.note,
           durationMs,
-          // Stash velocity on a side channel — we resolve it in the tick.
-          ...({ velocity } as any),
+          velocity,
         });
       } else if ('chord' in step) {
         events.push({
@@ -808,7 +735,7 @@ export class PianoSoundService {
           kind: 'chord',
           chord: step.chord,
           durationMs,
-          ...({ velocity } as any),
+          velocity,
         });
       }
 
@@ -839,7 +766,7 @@ export class PianoSoundService {
         const opts: PlayOptions = {
           durationMs: ev.durationMs,
           ...(waveform !== undefined ? { waveform } : {}),
-          ...({ velocity: (ev as any).velocity } as any),
+          velocity: ev.velocity,
         };
         if (ev.kind === 'note' && ev.note) {
           const pitch = this.parsePitch(ev.note);
@@ -929,202 +856,109 @@ export class PianoSoundService {
     this.stopSequence();
     if (!text?.trim()) return;
 
-    const msStepMs = options?.stepMs ?? 200;
-    const msTotalSteps = options?.totalSteps ?? Infinity;
-    const msWaveform = options?.waveform;
-    const msVelocityHumanize = options?.velocityHumanize ?? 0.12;
-    const msLoop = options?.loop ?? false;
+    const parsed = parseMidiStepTokens(text);
+    if (!parsed.length) return;
 
     const stepMs = options?.stepMs ?? 200;
-    const totalSteps = options?.totalSteps ?? Infinity;
     const waveform = options?.waveform;
     const velocityHumanize = options?.velocityHumanize ?? 0.12;
+    const loop = options?.loop ?? false;
 
-    // Parse tokens into { startStep, midis[], lengthSteps }.
-    interface Event {
-      startStep: number;
-      midis: number[];
-      lengthSteps: number;
-    }
-
-    const explicitNoteRegex = /^(\d{1,3})@(\d{1,3}):(\d{1,3})$/;
-    const explicitChordRegex = /^(\d{1,3})@\[([^\]]+)\]:(\d{1,3})$/;
-    const seqNoteRegex = /^(\d{1,3}):(\d{1,3})$/;
-    const seqChordRegex = /^\[([^\]]+)\]:(\d{1,3})$/;
-
-    const tokens = text
-      .replace(/[\n,;]/g, ' ')
-      .split(/\s+/)
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    const events: Event[] = [];
-    let cursorStep = 0;
-
-    for (const tok of tokens) {
-      const expChord = explicitChordRegex.exec(tok);
-      if (expChord) {
-        const start = parseInt(expChord[1], 10);
-        const length = parseInt(expChord[3], 10);
-        if (!Number.isFinite(start) || !length) continue;
-        const midis = expChord[2]
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((s) => parseInt(s, 10))
-          .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-        if (midis.length) {
-          events.push({ startStep: start, midis, lengthSteps: length });
-        }
-        continue;
-      }
-      const expNote = explicitNoteRegex.exec(tok);
-      if (expNote) {
-        const start = parseInt(expNote[1], 10);
-        const midi = parseInt(expNote[2], 10);
-        const length = parseInt(expNote[3], 10);
-        if (!Number.isFinite(start) || !length) continue;
-        events.push({ startStep: start, midis: [midi], lengthSteps: length });
-        continue;
-      }
-      const seqChord = seqChordRegex.exec(tok);
-      if (seqChord) {
-        const length = parseInt(seqChord[2], 10);
-        if (!length) continue;
-        const midis = seqChord[1]
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((s) => parseInt(s, 10))
-          .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-        if (midis.length) {
-          events.push({
-            startStep: cursorStep,
-            midis,
-            lengthSteps: length,
-          });
-          cursorStep += Math.max(1, length);
-        }
-        continue;
-      }
-      const seqNote = seqNoteRegex.exec(tok);
-      if (seqNote) {
-        const midi = parseInt(seqNote[1], 10);
-        const length = parseInt(seqNote[2], 10);
-        if (!length) continue;
-        events.push({
-          startStep: cursorStep,
-          midis: [midi],
-          lengthSteps: length,
-        });
-        cursorStep += Math.max(1, length);
-      }
-    }
-
-    if (!events.length) return;
-
-    // Compute the absolute audio time for each event.
     const LOOKAHEAD_S = 0.15;
     const TICK_MS = 25;
-    const startAnchor = ctx.currentTime + 0.05;
 
-    let nextEventIdx = 0;
-    let scheduled = 0;
+    // Compute the total length of one cycle (in ms) — used both to
+    // schedule the loop re-trigger and to fire `onEnd` for one-shots.
+    const lastStep = Math.max(
+      ...parsed.map((e) => e.startStep + e.lengthSteps),
+    );
+    const cycleMs = lastStep * stepMs;
 
-    const tick = () => {
-      if (!this.audioCtx) {
-        this.sequenceTimer = null;
-        return;
-      }
-      const now = this.audioCtx.currentTime;
-      while (nextEventIdx < events.length) {
-        const ev = events[nextEventIdx];
-        const target = startAnchor + (ev.startStep * msStepMs) / 1000;
-        if (target >= now + LOOKAHEAD_S) break;
+    /**
+     * Drives one cycle. Each cycle anchors itself 50 ms in the future
+     * (the look-ahead window) so events scheduled at audio time `t`
+     * always have headroom. Looping cycles re-call this function with
+     * the same options so the user can keep the same waveform / loop
+     * behavior alive across passes.
+     */
+    const runCycle = (): { totalMs: number } => {
+      const startAnchor = ctx.currentTime + 0.05;
+      let nextEventIdx = 0;
 
-        const delayMs = Math.max(0, (target - now) * 1000);
-        const noteDurMs = Math.max(50, ev.lengthSteps * msStepMs);
-        const optsBase: PlayOptions = { durationMs: noteDurMs };
-        if (msWaveform !== undefined) optsBase.waveform = msWaveform;
-        // Velocity humanization per event.
-        if (msVelocityHumanize > 0) {
-          const jitter = 1 + (Math.random() * 2 - 1) * msVelocityHumanize;
-          optsBase.velocity = Math.max(0.05, Math.min(1, 0.7 * jitter));
+      const tick = () => {
+        if (!this.audioCtx) {
+          this.sequenceTimer = null;
+          return;
         }
+        const now = this.audioCtx.currentTime;
+        while (nextEventIdx < parsed.length) {
+          const ev = parsed[nextEventIdx];
+          const target = startAnchor + (ev.startStep * stepMs) / 1000;
+          if (target >= now + LOOKAHEAD_S) break;
 
-        setTimeout(() => {
-          for (const midi of ev.midis) {
-            const pitch = this.midiToPitchInternal(midi);
-            if (!pitch) continue;
-            this.scheduleNote(pitch, this.audioCtx!, target, optsBase);
+          const delayMs = Math.max(0, (target - now) * 1000);
+          const noteDurMs = Math.max(50, ev.lengthSteps * stepMs);
+          const optsBase: PlayOptions = { durationMs: noteDurMs };
+          if (waveform !== undefined) optsBase.waveform = waveform;
+          // Velocity humanization per event.
+          if (velocityHumanize > 0) {
+            const jitter = 1 + (Math.random() * 2 - 1) * velocityHumanize;
+            optsBase.velocity = Math.max(0.05, Math.min(1, 0.7 * jitter));
           }
-        }, delayMs);
 
-        scheduled += 1;
-        nextEventIdx += 1;
-      }
-      if (nextEventIdx >= events.length) {
-        this.sequenceTimer = null;
-        return;
-      }
-      this.sequenceTimer = setTimeout(tick, TICK_MS);
+          setTimeout(() => {
+            if (!this.audioCtx) return;
+            for (const midi of ev.midis) {
+              const pitch = midiToPitch(midi);
+              if (!pitch) continue;
+              this.scheduleNote(pitch, this.audioCtx, target, optsBase);
+            }
+          }, delayMs);
+
+          nextEventIdx += 1;
+        }
+        if (nextEventIdx >= parsed.length) {
+          this.sequenceTimer = null;
+          return;
+        }
+        this.sequenceTimer = setTimeout(tick, TICK_MS);
+      };
+
+      tick();
+      return { totalMs: cycleMs };
     };
 
-    tick();
+    const { totalMs } = runCycle();
 
-    // Compute when the last note finishes so we can fire onEnd exactly
-    // once for non-looping playback.
-    const lastStep = events.length
-      ? Math.max(...events.map((e) => e.startStep + e.lengthSteps))
-      : 0;
-    const totalMs = lastStep * msStepMs;
-
-    if (msLoop && events.length) {
-      // Loop mode: re-trigger after one full cycle. The recursion is
-      // gated by `loopActive`: stopSequence() flips it to false so
-      // any in-flight re-trigger bails out.
+    if (loop && parsed.length) {
+      // Loop mode: schedule the next cycle to start when this one ends
+      // (plus a tiny gap so the last note's release isn't cut off). The
+      // recursion is gated by `loopActive` so stopSequence() can bail
+      // out cleanly even if a re-trigger is in flight.
       this.loopActive = true;
-      const loopGapMs = msStepMs;
-      const loopTotalMs = lastStep * msStepMs + loopGapMs;
+      const releaseTailMs = 240;
       this.loopTimerHandle = setTimeout(() => {
         if (!this.loopActive) return;
-        this.playMidiSteps(text, { ...options, loop: true });
-      }, loopTotalMs);
-    } else if (options?.onEnd && events.length) {
+        // Re-run on the same AudioContext (no recursion through
+        // playMidiSteps, so we avoid the +50 ms anchor accumulating
+        // into audible gaps on every cycle).
+        runCycle();
+        // Reschedule the next re-trigger. We chain setTimeouts of the
+        // same duration so drift is bounded by ~1 ms per cycle.
+        this.loopTimerHandle = setTimeout(
+          () => {
+            if (!this.loopActive) return;
+            runCycle();
+          },
+          totalMs + releaseTailMs,
+        );
+      }, totalMs);
+    } else if (options?.onEnd) {
       // One-shot: fire onEnd after the last note's duration elapses,
       // including the audio engine's release tail (~240ms).
       const releaseTailMs = 240;
       setTimeout(() => options.onEnd?.(), totalMs + releaseTailMs);
     }
-    void msTotalSteps;
-  }
-
-  /**
-   * Internal MIDI-to-Pitch helper used by playMidiSteps. Doesn't expose
-   * the FULL midiToPitch semantics to the public API to avoid coupling
-   * with external parsers.
-   */
-  private midiToPitchInternal(midi: number): Pitch | null {
-    if (!Number.isFinite(midi) || midi < 0 || midi > 127) return null;
-    const NOTE_INDEX: Record<NoteName, number> = {
-      C: 0,
-      'C#': 1,
-      D: 2,
-      'D#': 3,
-      E: 4,
-      F: 5,
-      'F#': 6,
-      G: 7,
-      'G#': 8,
-      A: 9,
-      'A#': 10,
-      B: 11,
-    };
-    const idx = midi % 12;
-    const octave = Math.floor(midi / 12) - 1;
-    const entry = Object.entries(NOTE_INDEX).find(([, v]) => v === idx);
-    if (!entry) return null;
-    return { note: entry[0] as NoteName, octave };
   }
 
   /**

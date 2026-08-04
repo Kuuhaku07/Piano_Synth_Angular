@@ -18,6 +18,13 @@ import {
   VoiceName,
 } from '../../../services/piano-sound.service';
 import { SequenceStep } from '../../../services/piano-sound.service';
+import {
+  midiToPitch,
+  pitchToMidi,
+} from '../../../services/music-theory';
+import {
+  parseMidiStepTokens,
+} from '../../../services/midi-step-parser';
 
 export type Quantization = '1/4' | '1/8' | '1/16';
 
@@ -34,72 +41,6 @@ interface Block {
  * The array is kept sorted by `start` so iteration is deterministic.
  */
 type Grid = Record<string, Block[]>;
-
-// ---- MIDI helpers ----------------------------------------------------
-// MIDI note numbers are the universal standard for representing pitches.
-// Convention: A4 = 69 = 440Hz. We use them in the export format so the
-// output is interoperable with any music software.
-
-// Indices into the chromatic scale, with C as the root.
-const MIDI_PITCH_INDEX: Record<NoteName, number> = {
-  C: 0,
-  'C#': 1,
-  D: 2,
-  'D#': 3,
-  E: 4,
-  F: 5,
-  'F#': 6,
-  G: 7,
-  'G#': 8,
-  A: 9,
-  'A#': 10,
-  B: 11,
-};
-
-function pitchToMidi(p: Pitch | null): number | null {
-  if (!p) return null;
-  // MIDI: octave * 12 + pitchIndex. A4 = 69 → (4+1)*12 + 9 = 69.
-  return (p.octave + 1) * 12 + MIDI_PITCH_INDEX[p.note];
-}
-
-function midiToPitch(midi: number): Pitch | null {
-  if (!Number.isFinite(midi) || midi < 0 || midi > 127) return null;
-  const noteIdx = midi % 12;
-  const octave = Math.floor(midi / 12) - 1;
-  const entry = Object.entries(MIDI_PITCH_INDEX).find(
-    ([, v]) => v === noteIdx,
-  );
-  if (!entry) return null;
-  return { note: entry[0] as NoteName, octave };
-}
-
-/** Parses "C4", "F#5", "Bb3" into a Pitch. Returns null on failure. */
-function noteStringToPitch(input: string): Pitch | null {
-  const m = /^([A-Ga-g])([#b]?)(-?\d+)$/.exec(input.trim());
-  if (!m) return null;
-  const letter = m[1].toUpperCase();
-  const acc = m[2];
-  const octave = parseInt(m[3], 10);
-  let base: NoteName;
-  if (acc === '#') {
-    base = (letter + '#') as NoteName;
-  } else if (acc === 'b') {
-    // Normalize flats to sharps for the grid keys.
-    const flatToSharp: Record<string, NoteName> = {
-      Db: 'C#',
-      Eb: 'D#',
-      Gb: 'F#',
-      Ab: 'G#',
-      Bb: 'A#',
-    };
-    base = flatToSharp[letter + 'b'];
-    if (!base) return null;
-  } else {
-    base = letter as NoteName;
-  }
-  if (!(base in MIDI_PITCH_INDEX)) return null;
-  return { note: base, octave };
-}
 
 @Component({
   selector: 'lib-piano-sequencer',
@@ -578,20 +519,8 @@ export class PianoSequencerComponent implements OnInit, OnDestroy {
   public loadFromText(text: string): void {
     this.stop();
     const next: Grid = {};
-    const tokens = (text || '')
-      .replace(/[\n,;]/g, ' ')
-      .split(/\s+/)
-      .map((t) => t.trim())
-      .filter(Boolean);
 
-    let cursorStep = 0;
-
-    // Explicit-step: step@midi:length or step@[midis]:length
-    const explicitNoteRegex = /^(\d{1,3})@(\d{1,3}):(\d{1,3})$/;
-    const explicitChordRegex = /^(\d{1,3})@\[([^\]]+)\]:(\d{1,3})$/;
-    // Sequential: midi:length or [midis]:length
-    const seqNoteRegex = /^(\d{1,3}):(\d{1,3})$/;
-    const seqChordRegex = /^\[([^\]]+)\]:(\d{1,3})$/;
+    const events = parseMidiStepTokens(text || '');
 
     const clampStep = (s: number): number =>
       Math.max(0, Math.min(this.steps - 1, s));
@@ -612,56 +541,8 @@ export class PianoSequencerComponent implements OnInit, OnDestroy {
       next[key] = list.sort((a, b) => a.start - b.start);
     };
 
-    for (const tok of tokens) {
-      // Try explicit-step forms first.
-      const expChord = explicitChordRegex.exec(tok);
-      if (expChord) {
-        const start = parseInt(expChord[1], 10);
-        const length = parseInt(expChord[3], 10);
-        if (!Number.isFinite(start) || !length) continue;
-        const midis = expChord[2]
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((s) => parseInt(s, 10))
-          .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-        for (const m of midis) place(m, length, start);
-        continue;
-      }
-      const expNote = explicitNoteRegex.exec(tok);
-      if (expNote) {
-        const start = parseInt(expNote[1], 10);
-        const midi = parseInt(expNote[2], 10);
-        const length = parseInt(expNote[3], 10);
-        if (!Number.isFinite(start) || !length) continue;
-        place(midi, length, start);
-        continue;
-      }
-
-      // Sequential forms.
-      const seqChord = seqChordRegex.exec(tok);
-      if (seqChord) {
-        const length = parseInt(seqChord[2], 10);
-        if (!length) continue;
-        const midis = seqChord[1]
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((s) => parseInt(s, 10))
-          .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-        for (const m of midis) place(m, length, cursorStep);
-        cursorStep += Math.max(1, length);
-        continue;
-      }
-      const seqNote = seqNoteRegex.exec(tok);
-      if (seqNote) {
-        const midi = parseInt(seqNote[1], 10);
-        const length = parseInt(seqNote[2], 10);
-        if (!length) continue;
-        place(midi, length, cursorStep);
-        cursorStep += Math.max(1, length);
-        continue;
-      }
+    for (const ev of events) {
+      for (const m of ev.midis) place(m, ev.lengthSteps, ev.startStep);
     }
     this.grid = next;
     this.syncTextBufferFromGrid();
