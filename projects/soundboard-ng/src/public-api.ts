@@ -4,6 +4,7 @@
 
 export { PianoPageComponent } from './lib/pages/piano/piano-page.component';
 export { PianoSequencerComponent } from './lib/pages/piano/lib-sequencer/piano-sequencer.component';
+export { PianoRollComponent } from './lib/pages/piano/lib-piano-roll/piano-roll.component';
 
 export { PianoSoundService } from './lib/services/piano-sound.service';
 export type {

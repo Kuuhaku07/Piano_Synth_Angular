@@ -21,6 +21,7 @@ import {
 } from '../../services/sequence-cache.service';
 import { PianoPresetsService } from '../../services/piano-presets';
 import { PianoSequencerComponent } from './lib-sequencer/piano-sequencer.component';
+import { PianoRollComponent } from './lib-piano-roll/piano-roll.component';
 
 interface PianoKey {
   pitch: Pitch;
@@ -104,6 +105,7 @@ const HOTKEY_BY_NOTE_OCTAVE: Record<string, string> = (() => {
     CommonModule,
     FormsModule,
     PianoSequencerComponent,
+    PianoRollComponent,
   ],
   templateUrl: './piano-page.component.html',
   styleUrl: './piano-page.component.scss',

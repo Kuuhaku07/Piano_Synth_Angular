@@ -171,12 +171,19 @@
     </p>
   </section>
 
-  <!-- Sequencer / piano roll -->
+  <!-- Sequencer (16-step loop grid) -->
   <lib-piano-sequencer
     [waveform]="waveform"
     [baseOctave]="baseOctave"
     [octaveCount]="2"
   ></lib-piano-sequencer>
+
+  <!-- Piano roll (scroll infinito, sin limite de pasos) -->
+  <lib-piano-roll
+    [waveform]="waveform"
+    [baseOctave]="baseOctave"
+    [octaveCount]="2"
+  ></lib-piano-roll>
 
   <!-- Presets -->
   <section
